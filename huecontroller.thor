@@ -83,6 +83,23 @@ class HueControler < Thor
 
   # ----------------------------------------------------------------------
 
+  desc "reboot", "Find out detail on your hue configuration items"
+  def reboot
+      puts "Perorm a payload command"
+
+      webinit
+
+      response = @conn.put("config") do |req|
+        req.body = {reboot: true}.to_json
+      end
+
+      response.body
+      puts "Hue Hub Response:"
+      ap(response.body)
+  end
+
+  # ----------------------------------------------------------------------
+
   desc "groups", "Find out detail on your hue groups"
   def groups
       puts "Getting all the groups."
@@ -132,6 +149,10 @@ class HueControler < Thor
       response = @conn.get("lights/#{id}")
       response.body
       puts "Animating Light: #{response.body['name']} state: [#{response.body['state']['on']}]"
+    rescue => e
+      puts "Exception in #{__method__.to_s} - #{e.class} - #{e.message}"
+      sleep 10
+      retry
     end
     $light_ids = ids
     illuminate
@@ -212,16 +233,25 @@ class HueControler < Thor
             hue = "[#{current_color[0]}, #{current_color[1]}]"
             puts "Target Light: #{target_light} - #{current_color} - #{hue}"
             response = @conn.put("lights/#{target_light}/state") do |req|
-              req.body = {on: true, "transitiontime": 50, sat: 254, bri: 200, xy: [current_color[0], current_color[1]]}.to_json
+              req.body = {on: true, "transitiontime": 10, sat: 254, bri: 200, xy: [current_color[0], current_color[1]]}.to_json
             end
             # puts "RESPONSE CODE : #{response.code}"
-            # puts "RESPONSE BODY : #{response.body}"
+            puts "RESPONSE BODY : #{response.body}"
+            sleep 0.5
+          rescue Timeout::Error, Errno::EINVAL, Errno::ECONNRESET, EOFError, Net::HTTPBadResponse, Net::HTTPHeaderSyntaxError, Net::ProtocolError, Faraday::ConnectionFailed => e
+            puts "Exception in #{__method__.to_s} - #{e.class} - #{e.message}"
+            sleep 30
+            retry
+          rescue => e
+            puts "RESPONSE Exception 1 #{e.message} - #{e.inspect}"
+            raise
           end
           sleep 10
           starttime = Time.now
         end
 
       end
+
   end
 
   # ----------------------------------------------------------------------
