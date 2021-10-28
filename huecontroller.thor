@@ -26,6 +26,15 @@ $hue_hub_ip = "<enter your hue hub ip address>"
 # Your device provided developer key
 $developer_key = "<enter your hue developer license>"
 
+# https://sunrise-sunset.org/api
+$locale_lat = 1.11111 # Enter your latitude in DD
+$locale_lon = -2.2222 # Enter your longitude in DD
+$weather_uri = URI("https://api.sunrise-sunset.org/json?lat=#{$locale_lat}&lng=#{$locale_lon}6&date=today&formatted=0")
+
+$sunrise = "2021-10-21T11:23:14+00:00"
+$sunset = "2021-10-21T22:22:51+00:00"
+$last_time_check = DateTime.iso8601("2021-10-21T22:22:51+00:00")
+
 # Sample lights
 $light_ids = [
   21, # Office 5
@@ -79,6 +88,46 @@ class HueControler < Thor
       response.body
       puts "Hue Configuration:"
       ap(response.body)
+  end
+
+  # ----------------------------------------------------------------------
+
+  desc "times", "Find out sunrise and sunset times"
+  def times
+      puts "Getting all the sunrise and sunset times."
+
+      suntimesinit
+
+      $nowtime = DateTime.now.new_offset(0)
+
+      if ($last_time_check + (2.0/24)) < $nowtime
+        response = @weather_connection.get("")
+        response.body
+        # ap(response.body)
+
+        puts "Last Time Check: #{$last_time_check}"
+        puts "   Update Daily: #{($last_time_check + (2.0/24)) < $nowtime}"
+        puts "       Time now: #{$nowtime}"
+
+        $sunrise = DateTime.iso8601(response.body['results']['sunrise'])
+        $sunset = DateTime.iso8601(response.body['results']['sunset'])
+        $last_time_check = $nowtime
+
+        puts "        Sunrise: #{$sunrise}"
+        puts "         Sunset: #{$sunset}"
+        puts "      Nighttime: #{nighttime}"
+        puts "    Before Dawn: #{$nowtime < $sunrise}"
+        puts "     After Dawn: #{$nowtime > $sunrise}"
+        puts "  Before Sunset: #{$nowtime < $sunset}"
+        puts "   After Sunset: #{$nowtime > $sunset}"
+
+      else
+        # puts "Last Time Check: #{$last_time_check}"
+        # puts "   Update Daily: #{($last_time_check + (2.0/24)) < $nowtime}"
+      end
+
+      nighttime
+
   end
 
   # ----------------------------------------------------------------------
@@ -223,9 +272,11 @@ class HueControler < Thor
       webinit
 
       starttime = Time.now
-      finishtime = Time.local(2021, 11, 7, 6, 0, 0)
+      finishtime = Time.local(2021, 11, 1, 6, 0, 0)
 
       while starttime < finishtime
+        times
+
         # puts " Current Time: #{starttime}"
         # puts "Turn Off Time: #{finishtime}"
         $selected_colors_xy.each do |current_color|
@@ -233,7 +284,11 @@ class HueControler < Thor
             hue = "[#{current_color[0]}, #{current_color[1]}]"
             puts "Target Light: #{target_light} - #{current_color} - #{hue}"
             response = @conn.put("lights/#{target_light}/state") do |req|
-              req.body = {on: true, "transitiontime": 10, sat: 254, bri: 200, xy: [current_color[0], current_color[1]]}.to_json
+              if nighttime
+                req.body = {on: true, "transitiontime": 10, sat: 254, bri: 200, xy: [current_color[0], current_color[1]]}.to_json
+              else
+                req.body = {on: false}.to_json
+              end
             end
             # puts "RESPONSE CODE : #{response.code}"
             puts "RESPONSE BODY : #{response.body}"
@@ -252,6 +307,26 @@ class HueControler < Thor
 
       end
 
+  end
+
+  # ----------------------------------------------------------------------
+
+  def nighttime
+    if Range.new( $sunrise, $sunset ) === $nowtime
+      return false
+    else
+      return true
+    end
+  end
+
+  # ----------------------------------------------------------------------
+
+  def suntimesinit
+    @weather_connection = Faraday.new(url: $weather_uri) do |faraday|
+      faraday.adapter Faraday.default_adapter
+      faraday.response :json
+      faraday.ssl.verify = false
+    end
   end
 
   # ----------------------------------------------------------------------
