@@ -29,7 +29,8 @@ $developer_key = "<enter your hue developer license>"
 # https://sunrise-sunset.org/api
 $locale_lat = 1.11111 # Enter your latitude in DD
 $locale_lon = -2.2222 # Enter your longitude in DD
-$weather_uri = URI("https://api.sunrise-sunset.org/json?lat=#{$locale_lat}&lng=#{$locale_lon}6&date=today&formatted=0")
+$weather_uri = URI("https://api.sunrise-sunset.org/json")
+$weather_params = {lat: $locale_lat, lng: $locale_lon, date: "today", formatted: "0"}
 
 $sunrise = "2021-10-21T11:23:14+00:00"
 $sunset = "2021-10-21T22:22:51+00:00"
@@ -94,16 +95,17 @@ class HueControler < Thor
 
   desc "times", "Find out sunrise and sunset times"
   def times
-      puts "Getting all the sunrise and sunset times."
 
       suntimesinit
 
       $nowtime = DateTime.now.new_offset(0)
 
-      if ($last_time_check + (2.0/24)) < $nowtime
+      # one minute 1.0/(24*60))
+      if ($last_time_check + (1.0/24)) < $nowtime
+
         response = @weather_connection.get("")
         response.body
-        # ap(response.body)
+        ap(response.body)
 
         puts "Last Time Check: #{$last_time_check}"
         puts "   Update Daily: #{($last_time_check + (2.0/24)) < $nowtime}"
@@ -322,11 +324,18 @@ class HueControler < Thor
   # ----------------------------------------------------------------------
 
   def suntimesinit
-    @weather_connection = Faraday.new(url: $weather_uri) do |faraday|
+    @weather_connection = Faraday.new(url: $weather_uri, params: $weather_params) do |faraday|
       faraday.adapter Faraday.default_adapter
       faraday.response :json
       faraday.ssl.verify = false
+      faraday.response :logger
     end
+    # puts "       Conncection URI: #{$weather_uri}"
+    # puts "   Conncection Options: #{@conn.options}"
+    # puts "       Conncection SSL: #{@conn.ssl}"
+    # puts "    Conncection Params: #{@conn.params}"
+    # puts "   Conncection Headers: #{@conn.headers}"
+    # puts "Conncection URL Prefix: #{@conn.url_prefix.path}"
   end
 
   # ----------------------------------------------------------------------
@@ -336,11 +345,13 @@ class HueControler < Thor
         faraday.adapter Faraday.default_adapter
         faraday.response :json
         faraday.ssl.verify = false
+        # faraday.response :logger
       end
-      # puts "Conncection Options: #{@conn.options}"
-      # puts "Conncection SSL: #{@conn.ssl}"
-      # puts "Conncection Params: #{@conn.params}"
-      # puts "Conncection Headers: #{@conn.headers}"
+      # puts "       Conncection URI: #{$hub_uri}"
+      # puts "   Conncection Options: #{@conn.options}"
+      # puts "       Conncection SSL: #{@conn.ssl}"
+      # puts "    Conncection Params: #{@conn.params}"
+      # puts "   Conncection Headers: #{@conn.headers}"
       # puts "Conncection URL Prefix: #{@conn.url_prefix.path}"
   end
 
