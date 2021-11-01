@@ -67,7 +67,9 @@ Commands:
   huecontroller.thor help [COMMAND]  # Describe available commands or one specific command
   huecontroller.thor light ID        # Find out detail on a single light
   huecontroller.thor lights          # Find out detail on your entire hue light configuration
+  huecontroller.thor reboot          # Find out detail on your hue configuration items
   huecontroller.thor state ID        # Find a light's on/off and color state
+  huecontroller.thor times           # Find out sunrise and sunset times
 ```
 
 Discover your light IDs:
